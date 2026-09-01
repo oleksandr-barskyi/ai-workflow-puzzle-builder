@@ -29,6 +29,8 @@ interface ToolCall {
   failures: FailureKind[]
 }
 
+const UNSTABLE_TOOLS: ToolName[] = ['newsFeed', 'crmLookup']
+
 const TOOL_RESULTS: Record<ToolName, unknown> = {
   calendarLookup: {
     attendees: ['Dana', 'Mikael', 'Priya'],
@@ -89,7 +91,7 @@ export function callTool(call: ToolCall): unknown {
   if (failures.includes('toolTimeout') && attempt <= 2) {
     throw new ToolTimeoutError(toolName, 5000)
   }
-  if (failures.includes('toolFailure') && attempt <= 1) {
+  if (failures.includes('toolFailure') && attempt <= 1 && UNSTABLE_TOOLS.includes(toolName)) {
     throw new ToolFailureError(toolName, 'upstream returned 503')
   }
   return TOOL_RESULTS[toolName]

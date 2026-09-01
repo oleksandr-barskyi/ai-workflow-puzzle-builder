@@ -341,6 +341,110 @@ export const PUZZLES: Puzzle[] = [
       ['safeStop', 'Safe stop', SAFE_STOP_HINT, {}],
     ]),
   },
+
+  {
+    id: 'malformed-json',
+    title: 'Catch the Half-Written Answer',
+    tagline: 'Recover from a truncated reply',
+    difficulty: 'beginner',
+    objective:
+      'Extract a structured invoice when the model cuts its answer off mid-sentence on the first attempt.',
+    story:
+      'The model starts writing JSON, then stops in the middle of a word. There is no field to validate, because there is no object at all, only a broken string.',
+    sampleInput: {
+      document:
+        'INVOICE 88213. Issued 2026-08-14. Team plan, August. Amount due: 240.00 EUR. Payable within 14 days.',
+    },
+    expectedOutput: 'An invoiceRecord object, produced after the truncated first answer is discarded.',
+    schemaId: 'invoiceRecord',
+    requiresHumanReview: false,
+    requiresValidation: false,
+    failureScenarios: [
+      {
+        kind: 'invalidJson',
+        label: 'The reply is cut off',
+        description: 'Attempt one returns a truncated string that cannot be parsed. Attempt two is fine.',
+        hint: 'This one is genuinely transient, so a single extra attempt is all it takes.',
+      },
+    ],
+    completionCriteria: [
+      { id: 'runCompletes', label: 'The workflow finishes', detail: 'Execution reaches the output block.' },
+      { id: 'retryUsed', label: 'A retry is attempted', detail: 'The broken answer is thrown away and asked again.' },
+      { id: 'failureHandled', label: 'The failure is handled', detail: 'The truncated reply never reaches the ledger.' },
+      { id: 'noUnhandledError', label: 'Nothing crashes', detail: 'No step fails without a recovery path.' },
+    ],
+    solutionHint:
+      'Add a Retry after the extraction step. Two attempts are enough, because the truncation only happens on the first one.',
+    starterWorkflow: {
+      blocks: [
+        block('input', 'Invoice document', 'The committed sample input for this puzzle.', {}, false),
+        block('ai', 'Extract the invoice', 'Pulls the structured record out of the text.', {
+          task: 'extractInvoice',
+          prompt: 'Extract invoiceNumber, total as a number, currency, and issuedOn.',
+        }, false),
+        block('output', 'Invoice record', 'Whatever arrives here goes into the ledger.', {}, false),
+      ],
+    },
+    availableBlocks: paletteFor([
+      ['retry', 'Retry', RETRY_HINT, { maxAttempts: 2 }],
+      ['validator', 'Validator', VALIDATOR_HINT, { schemaId: 'invoiceRecord' }],
+      ['fallback', 'Fallback: backup model', FALLBACK_HINT, { onFailure: 'fallbackModel' }],
+      ['safeStop', 'Safe stop', SAFE_STOP_HINT, {}],
+    ]),
+  },
+
+  {
+    id: 'resume-the-mission',
+    title: 'Resume the Interrupted Mission',
+    tagline: 'Recover from the last successful step',
+    difficulty: 'advanced',
+    objective:
+      'A long research workflow is interrupted partway through. Continue it from the last successful step instead of starting over.',
+    story:
+      'Three steps went fine and then the second source went down. Re-running the whole thing would throw away work that already succeeded, and the trace already knows where you got to.',
+    sampleInput: { topic: 'quarterly shipment growth and factory retooling' },
+    expectedOutput: 'A research digest, reached by continuing the run rather than restarting it.',
+    requiresHumanReview: false,
+    requiresValidation: false,
+    failureScenarios: [
+      {
+        kind: 'toolFailure',
+        label: 'The second source goes down',
+        description: 'The news feed returns 503 on the first attempt of the run.',
+        hint: 'Run it once and let it fail, then press "Resume from last good step" above the trace. The earlier steps are kept.',
+      },
+    ],
+    completionCriteria: [
+      { id: 'resumedFromCheckpoint', label: 'The run is resumed', detail: 'Work continues from the last successful step.' },
+      { id: 'runCompletes', label: 'The workflow finishes', detail: 'Execution reaches the output block.' },
+    ],
+    solutionHint:
+      'Run the workflow as it is. When it fails, the Resume button appears above the execution trace. Adding a Retry also works, but then you are solving a different puzzle: this one is about not repeating work you already paid for.',
+    starterWorkflow: {
+      blocks: [
+        block('input', 'Research topic', 'The committed sample input for this puzzle.', {}, false),
+        block('tool', 'Primary web search', 'Queries the primary source.', { toolName: 'webSearch' }, false),
+        block('ai', 'Plan the research', 'Decides which sources are worth reading.', {
+          task: 'planResearch',
+          prompt: 'Plan the steps and name the sources to consult.',
+        }, false),
+        block('tool', 'Secondary news feed', 'Queries the second source. This is the one that goes down.', {
+          toolName: 'newsFeed',
+        }, false),
+        block('ai', 'Synthesize the sources', 'Merges what the sources returned into a digest.', {
+          task: 'synthesizeSources',
+          prompt: 'Merge the sources into a digest and name any conflicts.',
+        }, false),
+        block('output', 'Research digest', 'Whatever arrives here goes into the newsletter.', {}, false),
+      ],
+    },
+    availableBlocks: paletteFor([
+      ['retry', 'Retry', RETRY_HINT, { maxAttempts: 2 }],
+      ['fallback', 'Fallback: backup tool', FALLBACK_HINT, { onFailure: 'fallbackTool', fallbackToolName: 'webSearch' }],
+      ['safeStop', 'Safe stop', SAFE_STOP_HINT, {}],
+      ['humanReview', 'Human review', HUMAN_HINT, {}],
+    ]),
+  },
 ]
 
 export function cloneBlock(source: WorkflowBlock): WorkflowBlock {

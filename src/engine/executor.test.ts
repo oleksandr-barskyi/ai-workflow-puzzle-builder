@@ -199,6 +199,71 @@ describe('puzzle 6, activate the fallback', () => {
   })
 })
 
+describe('puzzle 7, malformed json', () => {
+  const puzzle = findPuzzle('malformed-json')
+
+  it('fails on the truncated reply when nothing retries', async () => {
+    const result = await run(puzzle, starter(puzzle))
+    expect(result.status).toBe('failed')
+    expect(result.trace.some((entry) => entry.error?.kind === 'invalidJson')).toBe(true)
+  })
+
+  it('is solved by a single retry', async () => {
+    const workflow = insertBefore(starter(puzzle), 'output', palette(puzzle, 'retry'))
+    const result = await run(puzzle, workflow)
+    expect(result.status).toBe('completed')
+    expect(await solvedBy(puzzle, workflow)).toBe(true)
+  })
+})
+
+describe('puzzle 8, resume the mission', () => {
+  const puzzle = findPuzzle('resume-the-mission')
+
+  it('fails at the second source and records a checkpoint', async () => {
+    const result = await run(puzzle, starter(puzzle))
+    expect(result.status).toBe('failed')
+    expect(result.checkpointBlockId).toBeDefined()
+  })
+
+  it('completes when resumed from the last successful step', async () => {
+    const workflow = starter(puzzle)
+    const first = await run(puzzle, workflow)
+    const checkpointIndex = workflow.blocks.findIndex((block) => block.id === first.checkpointBlockId)
+    const nextBlock = workflow.blocks[checkpointIndex + 1]
+    expect(nextBlock).toBeDefined()
+
+    const resumed = await runWorkflow(workflow, {
+      input: puzzle.sampleInput,
+      activeFailures: [],
+      humanDecisions: [],
+      resumeFromBlockId: nextBlock.id,
+      completedBeforeResume: first.trace.filter((entry) => entry.status !== 'failed'),
+    })
+
+    expect(resumed.status).toBe('completed')
+    const met = evaluateCriteria(puzzle.completionCriteria, resumed, true)
+    expect(puzzle.completionCriteria.every((criterion) => met[criterion.id])).toBe(true)
+  })
+
+  it('keeps the already completed steps in the resumed trace', async () => {
+    const workflow = starter(puzzle)
+    const first = await run(puzzle, workflow)
+    const kept = first.trace.filter((entry) => entry.status !== 'failed')
+    const checkpointIndex = workflow.blocks.findIndex((block) => block.id === first.checkpointBlockId)
+    const resumed = await runWorkflow(workflow, {
+      input: puzzle.sampleInput,
+      activeFailures: [],
+      humanDecisions: [],
+      resumeFromBlockId: workflow.blocks[checkpointIndex + 1].id,
+      completedBeforeResume: kept,
+    })
+    expect(resumed.trace.length).toBeGreaterThan(kept.length)
+    expect(resumed.trace.slice(0, kept.length).map((entry) => entry.title)).toEqual(
+      kept.map((entry) => entry.title),
+    )
+  })
+})
+
 describe('determinism', () => {
   it('two identical runs produce an identical trace', async () => {
     const puzzle = findPuzzle('ticket-router')

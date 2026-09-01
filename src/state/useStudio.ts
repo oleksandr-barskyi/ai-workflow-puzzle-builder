@@ -5,6 +5,7 @@ import type {
   HumanDecision,
   HumanDecisionKind,
   RunResult,
+  TraceEntry,
   Workflow,
   WorkflowBlock,
 } from '../domain/types'
@@ -184,7 +185,29 @@ export function useStudio() {
     const checkpointIndex = blocks.findIndex((item) => item.id === snapshot.result?.checkpointBlockId)
     const nextBlock = blocks[checkpointIndex + 1]
     if (!nextBlock) return
-    const completed = snapshot.result.trace.filter((entry) => entry.status !== 'failed')
+    const interrupted = snapshot.result.trace
+    const lastGood = [...interrupted].reverse().find((entry) => entry.status === 'completed')
+    const resumeMarker: TraceEntry = {
+      id: `resume-${interrupted.length + 1}`,
+      blockId: nextBlock.id,
+      blockKind: nextBlock.kind,
+      title: 'Resumed from the last successful step',
+      status: 'recovered',
+      attempt: 1,
+      attemptsUsed: 1,
+      input: lastGood?.output,
+      output: lastGood?.output,
+      recovery: {
+        kind: 'resumeFromCheckpoint',
+        description: `Continued from "${lastGood?.title ?? 'the last successful step'}" instead of starting over`,
+        attempt: 1,
+        succeeded: true,
+      },
+      note: 'The steps that already succeeded were kept, not repeated',
+      usedMock: false,
+      durationMs: 0,
+    }
+    const completed = [...interrupted, resumeMarker]
     const result = await runWorkflow(snapshot.workflow, {
       input: findPuzzle(snapshot.puzzleId).sampleInput,
       activeFailures: snapshot.activeFailures.filter(

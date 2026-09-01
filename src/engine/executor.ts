@@ -366,7 +366,7 @@ export async function runWorkflow(workflow: Workflow, context: RunContext): Prom
     }
 
     const { policies, nextIndex } = collectPolicies(blocks, index + 1)
-    const outcome = await executeStep(block, policies, carried, failures, context, push)
+    const outcome = await executeStep(block, policies, carried, failures, context, push, trace)
 
     if (outcome.status === 'failed') {
       status = 'failed'
@@ -411,6 +411,7 @@ async function executeStep(
   failures: FailureKind[],
   context: RunContext,
   push: (entry: Omit<TraceEntry, 'id'>) => TraceEntry,
+  trace: TraceEntry[],
 ): Promise<StepOutcome> {
   const maxAttempts = policies.maxAttempts
   let lastError: StepError | undefined
@@ -524,7 +525,7 @@ async function executeStep(
     }
   }
 
-  return recoverStep(block, policies, input, failures, context, push, lastError, lastValue, lastValidation)
+  return recoverStep(block, policies, input, failures, context, push, trace, lastError, lastValue, lastValidation)
 }
 
 async function recoverStep(
@@ -534,6 +535,7 @@ async function recoverStep(
   failures: FailureKind[],
   context: RunContext,
   push: (entry: Omit<TraceEntry, 'id'>) => TraceEntry,
+  trace: TraceEntry[],
   lastError: StepError | undefined,
   lastValue: unknown,
   lastValidation: ValidationResult | undefined,
@@ -704,20 +706,30 @@ async function recoverStep(
     return { status: 'stopped', value: lastValue }
   }
 
-  push({
-    blockId: block.id,
-    blockKind: block.kind,
-    title: block.title,
-    status: 'failed',
-    attempt: policies.maxAttempts,
-    attemptsUsed: policies.maxAttempts,
-    input,
-    output: lastValue,
-    error: lastError ?? { kind: 'unhandled', message: 'The step failed with no recovery configured' },
-    validation: lastValidation,
-    note: 'No retry, fallback, human review, or safe stop was configured for this step',
-    usedMock: false,
-    durationMs: 0,
-  })
+  const note =
+    policies.maxAttempts > 1
+      ? 'Every attempt was used and no fallback, human review, or safe stop was configured'
+      : 'No retry, fallback, human review, or safe stop was configured for this step'
+
+  const existing = [...trace].reverse().find((entry) => entry.blockId === block.id && entry.status === 'failed')
+  if (existing) {
+    existing.note = note
+  } else {
+    push({
+      blockId: block.id,
+      blockKind: block.kind,
+      title: block.title,
+      status: 'failed',
+      attempt: policies.maxAttempts,
+      attemptsUsed: policies.maxAttempts,
+      input,
+      output: lastValue,
+      error: lastError ?? { kind: 'unhandled', message: 'The step failed with no recovery configured' },
+      validation: lastValidation,
+      note,
+      usedMock: false,
+      durationMs: 0,
+    })
+  }
   return { status: 'failed', value: lastValue }
 }

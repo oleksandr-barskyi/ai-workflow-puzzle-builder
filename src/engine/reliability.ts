@@ -31,6 +31,7 @@ function wasCaughtLater(trace: TraceEntry[], failedIndex: number): boolean {
   for (let index = failedIndex + 1; index < trace.length; index += 1) {
     const entry = trace[index]
     if (entry.recovery?.succeeded) return true
+    if (entry.recovery?.kind === 'resumeFromCheckpoint') return true
     if (entry.blockKind === 'safeStop' || entry.status === 'safelyStopped') return true
     if (entry.blockKind === 'humanReview' && entry.status !== 'failed') return true
     if (entry.status === 'recovered') return true
@@ -64,7 +65,8 @@ export function collectRunFacts(trace: TraceEntry[], status: RunStatus, resumed 
     safeStopUsed: trace.some((entry) => entry.blockKind === 'safeStop' || entry.status === 'safelyStopped'),
     unhandledFailures: failedEntries.filter((entry) => entry.recovery === undefined),
     validationRun: trace.some((entry) => entry.validation !== undefined),
-    resumedFromCheckpoint: resumed,
+    resumedFromCheckpoint:
+      resumed || trace.some((entry) => entry.recovery?.kind === 'resumeFromCheckpoint'),
   }
 }
 
@@ -125,7 +127,12 @@ export function buildReliabilityReport(trace: TraceEntry[], status: RunStatus, r
   }
 
   if (facts.injectedFailureSeen) {
-    const handled = facts.retrySucceeded || facts.fallbackSucceeded || facts.safeStopUsed || facts.humanDecisionRecorded
+    const handled =
+      facts.retrySucceeded ||
+      facts.fallbackSucceeded ||
+      facts.safeStopUsed ||
+      facts.humanDecisionRecorded ||
+      facts.resumedFromCheckpoint
     if (handled) score += 24
     signals.push({
       id: 'failure',
@@ -196,7 +203,14 @@ export function buildReliabilityReport(trace: TraceEntry[], status: RunStatus, r
     unresolved.push(`${entry.title}: ${entry.error?.message ?? 'failed with no recovery'}`)
   }
   if (!facts.validationRun) unresolved.push('No validator guards the structured output.')
-  if (facts.injectedFailureSeen && facts.retryAttempts === 0 && !facts.fallbackUsed && !facts.safeStopUsed) {
+  if (
+    facts.injectedFailureSeen &&
+    facts.retryAttempts === 0 &&
+    !facts.fallbackUsed &&
+    !facts.safeStopUsed &&
+    !facts.humanDecisionRecorded &&
+    !facts.resumedFromCheckpoint
+  ) {
     unresolved.push('A failure occurred but no retry, fallback, or safe stop was configured.')
   }
 

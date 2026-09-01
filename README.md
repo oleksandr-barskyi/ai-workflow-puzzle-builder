@@ -36,8 +36,9 @@ To run the engine test suite:
 npm test
 ```
 
-The suite covers the execution engine, the recovery strategies, the reliability scoring, and it
-proves that every shipped puzzle starts unsolved and can be solved with the blocks in its palette.
+23 tests cover the execution engine, every recovery strategy, the reliability scoring, and the
+determinism guarantee. They also prove that every shipped puzzle starts unsolved and can be solved
+with the blocks in its palette, so no puzzle is a dead end and none is already done for you.
 
 ---
 
@@ -90,7 +91,7 @@ the wrong step will not catch the failure you meant to catch.
 
 ## The puzzles
 
-Six puzzles ship with the app, across three difficulty levels. Each one carries its objective,
+Eight puzzles ship with the app, across three difficulty levels. Each one carries its objective,
 its sample input, its expected output, its failure scenario, and its completion criteria.
 
 | # | Puzzle | Level | The lesson |
@@ -101,10 +102,12 @@ its sample input, its expected output, its failure scenario, and its completion 
 | 4 | Survive the Research Timeout | intermediate | A transient timeout is what retries are for. A second source is faster still. |
 | 5 | Approve Before Sending | intermediate | Money, customers, and low confidence mean a person decides, and the decision is recorded. |
 | 6 | Activate the Fallback | advanced | Two different failures stacked together need two different strategies. |
+| 7 | Catch the Half-Written Answer | beginner | A truncated reply has no field to validate. Throw it away and ask again. |
+| 8 | Resume the Interrupted Mission | advanced | When a long run breaks, continue from the last successful step instead of paying for the work twice. |
 
-Puzzles 1, 2, 3, 4, and 6 require handling or recovering from a failure. Puzzles 1, 3, and 6
-require structured-output validation. Puzzle 5 pauses and records a human decision before
-continuing.
+Every puzzle except 5 requires handling or recovering from a failure. Puzzles 1, 3, and 6 require
+structured-output validation. Puzzle 5 pauses and records a human decision before continuing.
+Puzzle 8 is the only one solved by resuming rather than by adding a block.
 
 A puzzle is solved when every completion criterion in the right-hand panel is met. Criteria are
 evaluated from the actual execution trace, not from the shape of the workflow, so there is more
