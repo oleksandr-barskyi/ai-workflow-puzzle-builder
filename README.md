@@ -10,6 +10,8 @@ actually proves about your design, and what it does not.
 Nothing here calls a paid service. The model and the tools are deterministic simulators, so the
 same switches always produce the same trace, which means a reviewer can reproduce every result.
 
+![The workflow builder with a puzzle selected](docs/01-builder.png)
+
 ---
 
 ## Run it locally
@@ -181,6 +183,21 @@ is a valid solution to puzzle 5: refusing to send is a correct outcome, and the 
 
 ---
 
+## Screenshots
+
+**A solved puzzle.** The model dropped the owner field, the validator caught it, the repair
+fallback fixed it, and the reliability panel confirms every completion criterion.
+
+![A solved puzzle with its execution trace and reliability score](docs/02-solved-with-trace.png)
+
+**Human review.** The workflow is paused on a draft that is going to a real customer. The reviewer
+can approve it, edit the JSON in place, or reject and stop. Whatever they choose is recorded in the
+trace.
+
+![The human review dialog holding a paused workflow](docs/03-human-review.png)
+
+---
+
 ## Execution trace and reliability feedback
 
 The trace lists every step in order with its status: `completed`, `failed`, `retrying`,
@@ -234,6 +251,9 @@ No API key is read from the environment anywhere in this repository.
 ---
 
 ## Architecture
+
+A fuller treatment, including the per-step execution flow, the block binding rules, and the
+human-review sequence, is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TD
