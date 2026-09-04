@@ -1,5 +1,7 @@
 # AI Workflow Puzzle Builder
 
+**Live demo: https://oleksandr-barskyi.github.io/ai-workflow-puzzle-builder/**
+
 A browser-based puzzle lab for learning how resilient AI workflows are designed.
 
 You pick a puzzle, assemble a multi-step workflow out of blocks, run it against a committed
