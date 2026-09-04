@@ -392,7 +392,7 @@ export async function runWorkflow(workflow: Workflow, context: RunContext): Prom
     index = nextIndex
   }
 
-  const reliability = buildReliabilityReport(trace, status)
+  const reliability = buildReliabilityReport(trace, status, Boolean(context.resumeFromBlockId), failures)
 
   return {
     status,
@@ -401,6 +401,7 @@ export async function runWorkflow(workflow: Workflow, context: RunContext): Prom
     pendingReview,
     reliability,
     checkpointBlockId,
+    activeFailures: failures,
   }
 }
 

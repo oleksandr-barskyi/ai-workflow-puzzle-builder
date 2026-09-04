@@ -190,6 +190,7 @@ export interface RunResult {
   pendingReview?: PendingReview
   reliability: ReliabilityReport
   checkpointBlockId?: string
+  activeFailures: FailureKind[]
 }
 
 export interface RunContext {

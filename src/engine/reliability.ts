@@ -1,6 +1,7 @@
 import type {
   CompletionCriterion,
   CriterionId,
+  FailureKind,
   ReliabilityReport,
   ReliabilitySignal,
   RunResult,
@@ -14,6 +15,7 @@ export interface RunFacts {
   awaitingHuman: boolean
   finalOutputValid: boolean
   injectedFailureSeen: boolean
+  silentFailure: boolean
   retryAttempts: number
   retrySucceeded: boolean
   fallbackUsed: boolean
@@ -39,7 +41,12 @@ function wasCaughtLater(trace: TraceEntry[], failedIndex: number): boolean {
   return false
 }
 
-export function collectRunFacts(trace: TraceEntry[], status: RunStatus, resumed = false): RunFacts {
+export function collectRunFacts(
+  trace: TraceEntry[],
+  status: RunStatus,
+  resumed = false,
+  activeFailures: FailureKind[] = [],
+): RunFacts {
   const failedEntries = trace.filter(
     (entry, index) => entry.status === 'failed' && !wasCaughtLater(trace, index),
   )
@@ -50,7 +57,8 @@ export function collectRunFacts(trace: TraceEntry[], status: RunStatus, resumed 
     safelyStopped: status === 'safelyStopped',
     awaitingHuman: status === 'awaitingHuman',
     finalOutputValid: status === 'completed' && (lastValidated?.validation?.valid ?? false),
-    injectedFailureSeen: trace.some((entry) => entry.error !== undefined),
+    injectedFailureSeen: activeFailures.length > 0 || trace.some((entry) => entry.error !== undefined),
+    silentFailure: activeFailures.length > 0 && trace.every((entry) => entry.error === undefined),
     retryAttempts: trace.filter((entry) => entry.status === 'retrying').length,
     retrySucceeded: trace.some((entry) => entry.status === 'recovered' && entry.recovery?.kind === 'retry'),
     fallbackUsed: trace.some((entry) => entry.blockKind === 'fallback'),
@@ -70,8 +78,13 @@ export function collectRunFacts(trace: TraceEntry[], status: RunStatus, resumed 
   }
 }
 
-export function buildReliabilityReport(trace: TraceEntry[], status: RunStatus, resumed = false): ReliabilityReport {
-  const facts = collectRunFacts(trace, status, resumed)
+export function buildReliabilityReport(
+  trace: TraceEntry[],
+  status: RunStatus,
+  resumed = false,
+  activeFailures: FailureKind[] = [],
+): ReliabilityReport {
+  const facts = collectRunFacts(trace, status, resumed, activeFailures)
   const signals: ReliabilitySignal[] = []
   let score = 0
 
@@ -140,7 +153,9 @@ export function buildReliabilityReport(trace: TraceEntry[], status: RunStatus, r
       state: handled ? 'good' : 'bad',
       detail: handled
         ? 'The injected failure was caught and the workflow recovered or stopped on purpose.'
-        : 'A failure happened and the workflow had no answer for it.',
+        : facts.silentFailure
+          ? 'The failure never raised an error, so nothing in this workflow noticed it. The run looks clean and the result is still wrong.'
+          : 'A failure happened and the workflow had no answer for it.',
     })
   } else {
     score += 10
@@ -233,7 +248,7 @@ export function evaluateCriteria(
   result: RunResult,
   resumed = false,
 ): Record<CriterionId, boolean> {
-  const facts = collectRunFacts(result.trace, result.status, resumed)
+  const facts = collectRunFacts(result.trace, result.status, resumed, result.activeFailures ?? [])
   const met: Partial<Record<CriterionId, boolean>> = {}
   for (const criterion of criteria) {
     switch (criterion.id) {

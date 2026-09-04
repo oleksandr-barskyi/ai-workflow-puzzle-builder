@@ -293,4 +293,25 @@ describe('reliability scoring', () => {
     const result = await run(puzzle, starter(puzzle))
     expect(result.reliability.unresolved.length).toBeGreaterThan(0)
   })
+
+  it('never calls a run clean while a failure scenario is switched on', async () => {
+    const puzzle = findPuzzle('meeting-summarizer')
+    const result = await run(puzzle, starter(puzzle))
+    const failure = result.reliability.signals.find((signal) => signal.id === 'failure')
+    expect(result.status).toBe('completed')
+    expect(failure?.label).not.toBe('No failure injected')
+    expect(failure?.state).toBe('bad')
+    expect(result.reliability.unresolved.length).toBeGreaterThan(0)
+  })
+
+  it('still reports a clean run when no failure scenario is active', async () => {
+    const puzzle = findPuzzle('meeting-summarizer')
+    const result = await runWorkflow(starter(puzzle), {
+      input: puzzle.sampleInput,
+      activeFailures: [],
+      humanDecisions: [],
+    })
+    const failure = result.reliability.signals.find((signal) => signal.id === 'failure')
+    expect(failure?.label).toBe('No failure injected')
+  })
 })

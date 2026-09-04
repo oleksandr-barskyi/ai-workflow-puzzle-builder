@@ -205,7 +205,7 @@ into an intermediate engine state. Everything the UI knows about a run arrives i
 
 ## 6. Why these boundaries
 
-**The engine is testable without a browser.** All 23 tests are synchronous calls into
+**The engine is testable without a browser.** All 25 tests are synchronous calls into
 `runWorkflow` and `evaluateCriteria`. They assert on real behaviour: that each puzzle is unsolved
 at the start, that each is solvable with its own palette, that two identical runs produce byte
 identical traces, and that a handled failure scores above an unhandled one.

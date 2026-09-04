@@ -40,7 +40,7 @@ To run the engine test suite:
 npm test
 ```
 
-23 tests cover the execution engine, every recovery strategy, the reliability scoring, and the
+25 tests cover the execution engine, every recovery strategy, the reliability scoring, and the
 determinism guarantee. They also prove that every shipped puzzle starts unsolved and can be solved
 with the blocks in its palette, so no puzzle is a dead end and none is already done for you.
 
